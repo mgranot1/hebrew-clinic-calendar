@@ -1,24 +1,33 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/Logo";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Etti – מערכת ניהול הקליניקה" },
+      { name: "description", content: "יומן תורים, לקוחות, מחירון והכנסות לקליניקת Etti לאסתטיקה מתקדמת." },
+      { property: "og:title", content: "Etti – מערכת ניהול הקליניקה" },
+      { property: "og:description", content: "יומן תורים, לקוחות, מחירון והכנסות לקליניקת Etti." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <main className="flex min-h-screen items-center justify-center bg-background px-6">
+      <div className="w-full max-w-md rounded-3xl border bg-card p-10 text-center shadow-soft">
+        <Logo />
+        <p className="mt-6 text-sm text-muted-foreground">אפילציה | שעוות פנים וגוף | עיצוב גבות</p>
+        <h1 className="mt-8 font-display text-2xl">מערכת ניהול הקליניקה</h1>
+        <p className="mt-2 text-muted-foreground">יומן תורים, לקוחות, מחירון והכנסות – במקום אחד.</p>
+        <Button asChild variant="hero" size="lg" className="mt-8 w-full">
+          <Link to="/dashboard">כניסה ליומן</Link>
+        </Button>
+      </div>
+    </main>
   );
 }
