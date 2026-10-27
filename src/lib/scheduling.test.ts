@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { availableSlots, toMinutes, fromMinutes } from "./scheduling";
+import { availableSlots, toMinutes, fromMinutes, isPastDay } from "./scheduling";
 
 const day = { start: toMinutes("10:00"), end: toMinutes("12:00") };
 const slots = (booked: { start: number; end: number }[], d: number, breaks = []) =>
@@ -36,5 +36,10 @@ describe("scheduling rules", () => {
 
   it("closed day has no slots", () => {
     expect(availableSlots(null, [], [], 15)).toEqual([]);
+  });
+  it("a date before today is not bookable", () => {
+    expect(isPastDay("2026-10-26", "2026-10-27")).toBe(true);
+    expect(isPastDay("2026-10-27", "2026-10-27")).toBe(false);
+    expect(isPastDay("2026-10-28", "2026-10-27")).toBe(false);
   });
 });

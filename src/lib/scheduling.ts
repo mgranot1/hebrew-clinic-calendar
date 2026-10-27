@@ -63,3 +63,12 @@ export function availableSlots(
   }
   return slots;
 }
+
+/**
+ * True when a calendar date (yyyy-MM-dd) is earlier than today.
+ * ISO dates sort correctly as plain strings, so a string compare is enough.
+ */
+export function isPastDay(dateIso: string, todayIso: string): boolean {
+  return dateIso < todayIso;
+}
+
