@@ -57,7 +57,10 @@ function AuthPage() {
 
   async function google() {
     const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-    if (result.error) return toast.error("הכניסה עם Google נכשלה");
+    if (result.error) {
+      toast.error("הכניסה עם Google נכשלה");
+      return;
+    }
     if (result.redirected) return;
     navigate({ to: "/dashboard" });
   }

@@ -97,8 +97,19 @@ function ClientForm({ draft, onClose }: { draft: Draft; onClose: () => void }) {
 
   async function submit() {
     const parsed = clientSchema.safeParse(form);
-    if (!parsed.success) return toast.error(parsed.error.issues[0].message);
-    await save.mutateAsync({ ...parsed.data, id: draft.id });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "שגיאה");
+      return;
+    }
+    const d = parsed.data;
+    await save.mutateAsync({
+      ...(draft.id ? { id: draft.id } : {}),
+      full_name: d.full_name,
+      phone: d.phone || null,
+      email: d.email || null,
+      notes: d.notes || null,
+      debt: d.debt,
+    });
     onClose();
   }
 

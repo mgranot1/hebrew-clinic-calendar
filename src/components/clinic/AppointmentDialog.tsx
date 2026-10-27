@@ -56,7 +56,7 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
 
   function changeType(t: TreatmentType) {
     setType(t);
-    setDuration(allowedDurations(t)[t === "waxing" ? 0 : 2]);
+    setDuration(allowedDurations(t)[t === "waxing" ? 0 : 2] ?? 15);
     setSlot(null);
   }
 
