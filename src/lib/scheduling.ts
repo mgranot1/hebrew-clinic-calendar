@@ -30,6 +30,14 @@ export function fromMinutes(mins: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+/** 45 -> "45 דק׳", 60 -> "1 ש׳", 135 -> "2 ש׳ 15 דק׳" */
+export function formatDuration(mins: number): string {
+  if (mins < 60) return `${mins} דק׳`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h} ש׳ ${m} דק׳` : `${h} ש׳`;
+}
+
 export function allowedDurations(type: TreatmentType): number[] {
   return type === "waxing" ? [WAXING_DURATION] : ELECTROLYSIS_DURATIONS;
 }
@@ -71,4 +79,3 @@ export function availableSlots(
 export function isPastDay(dateIso: string, todayIso: string): boolean {
   return dateIso < todayIso;
 }
-
