@@ -1,3 +1,4 @@
+// `redirect` דרוש כשמחזירים את האימות המקורי (ראו beforeLoad למטה).
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Users, Settings, Wallet, LogOut } from "lucide-react";
@@ -6,11 +7,18 @@ import { Logo } from "@/components/Logo";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
+  // --- אימות מושבת זמנית: הגישה ליומן פתוחה לכל מי שיש לו את הקישור. ---
+  // כדי להחזיר את ההזדהות, מחקו את ה-beforeLoad הזמני שלמטה ובטלו את ההערה מהגרסה המקורית.
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) throw redirect({ to: "/auth" });
-    return { user: data.user };
+    // משתמש דמה כדי שה-layout (user.email וכו') ימשיך לעבוד ללא אימות אמיתי.
+    return { user: { email: "" } as { email: string } };
   },
+  // --- הגרסה המקורית עם אימות (לשחזור בעתיד): ---
+  // beforeLoad: async () => {
+  //   const { data } = await supabase.auth.getUser();
+  //   if (!data.user) throw redirect({ to: "/auth" });
+  //   return { user: data.user };
+  // },
   component: AppLayout,
 });
 
@@ -52,8 +60,13 @@ function AppLayout() {
           ))}
         </nav>
         <div className="md:border-t md:border-sidebar-border md:pt-4">
-          <p className="hidden truncate text-xs opacity-70 md:block" dir="ltr">{user.email}</p>
-          <button onClick={signOut} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-sidebar-accent md:mt-2">
+          <p className="hidden truncate text-xs opacity-70 md:block" dir="ltr">
+            {user.email}
+          </p>
+          <button
+            onClick={signOut}
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-sidebar-accent md:mt-2"
+          >
             <LogOut className="h-4 w-4" />
             <span className="hidden md:inline">יציאה</span>
           </button>
