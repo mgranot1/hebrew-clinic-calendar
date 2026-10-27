@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { availableSlots, toMinutes, fromMinutes } from "./scheduling";
+import { availableSlots, toMinutes, fromMinutes, isPastDay } from "./scheduling";
 
 const day = { start: toMinutes("10:00"), end: toMinutes("12:00") };
 const slots = (booked: { start: number; end: number }[], d: number, breaks = []) =>

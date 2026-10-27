@@ -11,7 +11,7 @@ import {
   appointmentsQuery, breaksQuery, clientsQuery, hoursQuery, pricingQuery, ils,
   TREATMENT_LABEL, useCreateAppointment,
 } from "@/lib/clinic";
-import { allowedDurations, availableSlots, fromMinutes, type TreatmentType } from "@/lib/scheduling";
+import { allowedDurations, availableSlots, fromMinutes, isPastDay, type TreatmentType } from "@/lib/scheduling";
 import { daySchedule, iso } from "@/lib/day-schedule";
 
 interface Props {
