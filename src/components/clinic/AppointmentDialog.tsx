@@ -22,7 +22,10 @@ interface Props {
 
 /** Create-appointment form: client, treatment, duration, auto price and valid slots only. */
 export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
-  const [date, setDate] = useState(iso(initialDate));
+  const today = iso(new Date());
+  /** Dates that already passed can't be booked, so the form never starts on one. */
+  const clampToToday = (d: Date) => (isPastDay(iso(d), today) ? today : iso(d));
+  const [date, setDate] = useState(() => clampToToday(initialDate));
   const [clientName, setClientName] = useState("");
   const [clientId, setClientId] = useState<string | null>(null);
   const [type, setType] = useState<TreatmentType>("waxing");
@@ -32,7 +35,7 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
 
   useEffect(() => {
     if (open) {
-      setDate(iso(initialDate));
+      setDate(clampToToday(initialDate));
       setClientName("");
       setClientId(null);
       setSlot(null);
@@ -49,9 +52,10 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
 
   const price = pricing.find((p) => p.treatment_type === type && p.duration_minutes === duration)?.price ?? 0;
   const slots = useMemo(() => {
+    if (isPastDay(date, today)) return [];
     const s = daySchedule(new Date(date + "T00:00"), hours, breaks, appts);
     return availableSlots(s.open, s.breaks, s.booked, duration);
-  }, [date, hours, breaks, appts, duration]);
+  }, [date, hours, breaks, appts, duration, today]);
 
   const suggestions = showList && !clientId
     ? clients
@@ -66,7 +70,7 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
   }
 
   async function submit() {
-    if (slot == null || !clientName.trim()) return;
+    if (slot == null || !clientName.trim() || isPastDay(date, today)) return;
     await create.mutateAsync({
       appt_date: date,
       start_time: fromMinutes(slot),
@@ -124,7 +128,7 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
           </div>
           <div className="space-y-1.5">
             <Label>תאריך</Label>
-            <Input type="date" value={date} onChange={(e) => { setDate(e.target.value); setSlot(null); }} />
+            <Input type="date" min={today} value={date} onChange={(e) => { setDate(e.target.value); setSlot(null); }} />
           </div>
           <div className="space-y-1.5">
             <Label>סוג טיפול</Label>
@@ -149,7 +153,9 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
 
         <div>
           <Label>שעות פנויות</Label>
-          {slots.length === 0 ? (
+          {isPastDay(date, today) ? (
+            <p className="mt-2 rounded-lg bg-muted p-4 text-center text-sm text-muted-foreground">אי אפשר לקבוע תור לתאריך שכבר עבר. בחרו היום או מחר.</p>
+          ) : slots.length === 0 ? (
             <p className="mt-2 rounded-lg bg-muted p-4 text-center text-sm text-muted-foreground">אין שעות פנויות ביום זה</p>
           ) : (
             <div className="mt-2 grid max-h-48 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-6">
@@ -171,7 +177,7 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
 
         <DialogFooter className="items-center gap-3 sm:justify-between">
           <div className="text-lg">מחיר: <span className="font-semibold text-primary">{ils(Number(price))}</span></div>
-          <Button variant="hero" onClick={submit} disabled={slot == null || !clientName.trim() || create.isPending}>
+          <Button variant="hero" onClick={submit} disabled={slot == null || !clientName.trim() || create.isPending || isPastDay(date, today)}>
             קביעת תור
           </Button>
         </DialogFooter>
