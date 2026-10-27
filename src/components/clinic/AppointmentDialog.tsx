@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
   const [type, setType] = useState<TreatmentType>("waxing");
   const [duration, setDuration] = useState(15);
   const [slot, setSlot] = useState<number | null>(null);
+  const [showList, setShowList] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -34,6 +36,7 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
       setClientName("");
       setClientId(null);
       setSlot(null);
+      setShowList(false);
     }
   }, [open, initialDate]);
 
@@ -50,9 +53,11 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
     return availableSlots(s.open, s.breaks, s.booked, duration);
   }, [date, hours, breaks, appts, duration]);
 
-  const suggestions = clientName && !clientId
-    ? clients.filter((c) => c.full_name.includes(clientName) || c.phone?.includes(clientName)).slice(0, 5)
-    : [];
+  const suggestions = showList && !clientId
+    ? clients
+    : clientName && !clientId
+      ? clients.filter((c) => c.full_name.includes(clientName) || c.phone?.includes(clientName)).slice(0, 5)
+      : [];
 
   function changeType(t: TreatmentType) {
     setType(t);
@@ -84,19 +89,31 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
         <div className="grid gap-5 md:grid-cols-2">
           <div className="relative space-y-1.5">
             <Label>לקוחה</Label>
-            <Input
-              placeholder="בחרו לקוחה או הקלידו שם"
-              value={clientName}
-              onChange={(e) => { setClientName(e.target.value); setClientId(null); }}
-            />
+            <div className="flex gap-2">
+              <Input
+                className="flex-1"
+                placeholder="בחרו לקוחה או הקלידו שם"
+                value={clientName}
+                onChange={(e) => { setClientName(e.target.value); setClientId(null); }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="רשימת לקוחות"
+                onClick={() => { setShowList((s) => !s); setClientId(null); }}
+              >
+                <ChevronDown className={cn("transition-transform", showList && "rotate-180")} />
+              </Button>
+            </div>
             {clientId && <p className="text-xs text-success">לקוחה קיימת ✓</p>}
             {suggestions.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border bg-popover shadow-soft">
+              <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border bg-popover shadow-soft">
                 {suggestions.map((c) => (
                   <button
                     key={c.id}
                     className="flex w-full justify-between px-3 py-2 text-sm hover:bg-accent"
-                    onClick={() => { setClientName(c.full_name); setClientId(c.id); }}
+                    onClick={() => { setClientName(c.full_name); setClientId(c.id); setShowList(false); }}
                   >
                     <span>{c.full_name}</span>
                     <span dir="ltr" className="text-muted-foreground">{c.phone}</span>
