@@ -14,7 +14,190 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          appt_date: string
+          client_id: string | null
+          client_name: string
+          created_at: string
+          created_by: string | null
+          duration_minutes: number
+          id: string
+          notes: string | null
+          price: number
+          start_time: string
+          status: string
+          treatment_type: string
+        }
+        Insert: {
+          appt_date: string
+          client_id?: string | null
+          client_name: string
+          created_at?: string
+          created_by?: string | null
+          duration_minutes: number
+          id?: string
+          notes?: string | null
+          price?: number
+          start_time: string
+          status?: string
+          treatment_type: string
+        }
+        Update: {
+          appt_date?: string
+          client_id?: string | null
+          client_name?: string
+          created_at?: string
+          created_by?: string | null
+          duration_minutes?: number
+          id?: string
+          notes?: string | null
+          price?: number
+          start_time?: string
+          status?: string
+          treatment_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      breaks: {
+        Row: {
+          day_of_week: number
+          end_time: string
+          id: string
+          start_time: string
+        }
+        Insert: {
+          day_of_week: number
+          end_time: string
+          id?: string
+          start_time: string
+        }
+        Update: {
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          start_time?: string
+        }
+        Relationships: []
+      }
+      clients: {
+        Row: {
+          created_at: string
+          debt: number
+          email: string | null
+          full_name: string
+          id: string
+          notes: string | null
+          phone: string | null
+        }
+        Insert: {
+          created_at?: string
+          debt?: number
+          email?: string | null
+          full_name: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+        }
+        Update: {
+          created_at?: string
+          debt?: number
+          email?: string | null
+          full_name?: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+        }
+        Relationships: []
+      }
+      pricing_rules: {
+        Row: {
+          duration_minutes: number
+          id: string
+          price: number
+          treatment_type: string
+        }
+        Insert: {
+          duration_minutes: number
+          id?: string
+          price?: number
+          treatment_type: string
+        }
+        Update: {
+          duration_minutes?: number
+          id?: string
+          price?: number
+          treatment_type?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          appointment_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          kind: string
+          txn_date: string
+        }
+        Insert: {
+          amount: number
+          appointment_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind: string
+          txn_date?: string
+        }
+        Update: {
+          amount?: number
+          appointment_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          txn_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      working_hours: {
+        Row: {
+          day_of_week: number
+          end_time: string
+          is_open: boolean
+          start_time: string
+        }
+        Insert: {
+          day_of_week: number
+          end_time?: string
+          is_open?: boolean
+          start_time?: string
+        }
+        Update: {
+          day_of_week?: number
+          end_time?: string
+          is_open?: boolean
+          start_time?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
