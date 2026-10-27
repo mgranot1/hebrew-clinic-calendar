@@ -42,7 +42,10 @@ function AuthPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin + "/dashboard", data: { full_name: name } },
+          options: {
+            emailRedirectTo: window.location.origin + "/dashboard",
+            data: { full_name: name },
+          },
         });
         if (error) throw error;
         toast.success("נשלח מייל אישור – יש ללחוץ על הקישור כדי להשלים את ההרשמה");
@@ -56,7 +59,9 @@ function AuthPage() {
   }
 
   async function google() {
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+    });
     if (result.error) {
       toast.error("הכניסה עם Google נכשלה");
       return;
@@ -69,7 +74,9 @@ function AuthPage() {
     <main className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="w-full max-w-sm rounded-3xl border bg-card p-8 shadow-soft">
         <Logo />
-        <h1 className="mt-6 text-center font-display text-xl">{mode === "in" ? "כניסת צוות" : "הרשמת איש צוות"}</h1>
+        <h1 className="mt-6 text-center font-display text-xl">
+          {mode === "in" ? "כניסת צוות" : "הרשמת איש צוות"}
+        </h1>
         <form onSubmit={submit} className="mt-6 space-y-4">
           {mode === "up" && (
             <div className="space-y-1.5">
@@ -79,19 +86,31 @@ function AuthPage() {
           )}
           <div className="space-y-1.5">
             <Label htmlFor="email">אימייל</Label>
-            <Input id="email" type="email" dir="ltr" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input
+              id="email"
+              type="email"
+              dir="ltr"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="password">סיסמה</Label>
-            <Input id="password" type="password" dir="ltr" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Input
+              id="password"
+              type="password"
+              dir="ltr"
+              required
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
           <Button type="submit" variant="hero" className="w-full" disabled={busy}>
             {mode === "in" ? "כניסה" : "הרשמה"}
           </Button>
         </form>
-        <Button variant="outline" className="mt-3 w-full" onClick={google}>
-          המשך עם Google
-        </Button>
         <button
           className="mt-5 w-full text-center text-sm text-muted-foreground hover:text-primary"
           onClick={() => setMode(mode === "in" ? "up" : "in")}
