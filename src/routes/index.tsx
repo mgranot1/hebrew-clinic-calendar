@@ -6,7 +6,10 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Etti – מערכת ניהול הקליניקה" },
-      { name: "description", content: "יומן תורים, לקוחות, מחירון והכנסות לקליניקת Etti לאסתטיקה מתקדמת." },
+      {
+        name: "description",
+        content: "יומן תורים, לקוחות, מחירון והכנסות לקליניקת Etti לאסתטיקה מתקדמת.",
+      },
       { property: "og:title", content: "Etti – מערכת ניהול הקליניקה" },
       { property: "og:description", content: "יומן תורים, לקוחות, מחירון והכנסות לקליניקת Etti." },
       { property: "og:type", content: "website" },
@@ -23,7 +26,7 @@ function Index() {
         <Logo />
         <p className="mt-6 text-sm text-muted-foreground">אפילציה | שעוות פנים וגוף | עיצוב גבות</p>
         <h1 className="mt-8 font-display text-2xl">מערכת ניהול הקליניקה</h1>
-        <p className="mt-2 text-muted-foreground">יומן תורים, לקוחות, מחירון והכנסות – במקום אחד.</p>
+        <p className="mt-2 text-muted-foreground">יומן תורים, לקוחות, מחירון והכנסות</p>
         <Button asChild variant="hero" size="lg" className="mt-8 w-full">
           <Link to="/dashboard">כניסה ליומן</Link>
         </Button>
