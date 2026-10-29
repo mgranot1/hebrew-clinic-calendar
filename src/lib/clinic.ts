@@ -14,6 +14,11 @@ export type WorkingHours = Tables<"working_hours">;
 export type Break = Tables<"breaks">;
 export type Transaction = Tables<"transactions">;
 export type AppointmentStatus = "scheduled" | "completed" | "paid" | "cancelled";
+export type PaymentMethod = "cash" | "transfer";
+export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
+  cash: "מזומן",
+  transfer: "העברה",
+};
 
 export const STATUS_LABEL: Record<AppointmentStatus, string> = {
   scheduled: "מתוכנן",

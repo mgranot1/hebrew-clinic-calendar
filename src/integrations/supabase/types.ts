@@ -18,6 +18,7 @@ export type Database = {
           duration_minutes: number;
           id: string;
           notes: string | null;
+          payment_method: string | null;
           price: number;
           start_time: string;
           status: string;
@@ -32,6 +33,7 @@ export type Database = {
           duration_minutes: number;
           id?: string;
           notes?: string | null;
+          payment_method?: string | null;
           price?: number;
           start_time: string;
           status?: string;
@@ -46,6 +48,7 @@ export type Database = {
           duration_minutes?: number;
           id?: string;
           notes?: string | null;
+          payment_method?: string | null;
           price?: number;
           start_time?: string;
           status?: string;
@@ -165,6 +168,7 @@ export type Database = {
           description: string | null;
           id: string;
           kind: string;
+          payment_method: string | null;
           txn_date: string;
         };
         Insert: {
@@ -174,6 +178,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           kind: string;
+          payment_method?: string | null;
           txn_date?: string;
         };
         Update: {
@@ -183,6 +188,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           kind?: string;
+          payment_method?: string | null;
           txn_date?: string;
         };
         Relationships: [

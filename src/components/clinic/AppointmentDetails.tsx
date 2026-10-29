@@ -3,11 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ils,
+  PAYMENT_LABEL,
   STATUS_LABEL,
   useDeleteAppointment,
   useUpdateAppointment,
   type Appointment,
   type AppointmentStatus,
+  type PaymentMethod,
 } from "@/lib/clinic";
 import { fromMinutes, toMinutes } from "@/lib/scheduling";
 
@@ -24,9 +26,14 @@ export function AppointmentDetails({
   if (!appt) return null;
   const start = toMinutes(appt.start_time);
   const setStatus = async (status: AppointmentStatus) => {
-    await update.mutateAsync({ id: appt.id, status });
+    await update.mutateAsync({ id: appt.id, status, payment_method: null });
     onClose();
   };
+  const markPaid = async (payment_method: PaymentMethod) => {
+    await update.mutateAsync({ id: appt.id, status: "paid", payment_method });
+    onClose();
+  };
+  const method = appt.payment_method as PaymentMethod | null;
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -51,11 +58,31 @@ export function AppointmentDetails({
           <dd>
             <Badge variant="secondary">{STATUS_LABEL[appt.status as AppointmentStatus]}</Badge>
           </dd>
+          {appt.status === "paid" && (
+            <>
+              <dt className="text-muted-foreground">אמצעי תשלום</dt>
+              <dd>{method ? PAYMENT_LABEL[method] : "לא צוין"}</dd>
+            </>
+          )}
         </dl>
         <div className="mt-4 grid grid-cols-2 gap-2">
           {appt.status !== "paid" && (
-            <Button variant="success" className="col-span-2" onClick={() => setStatus("paid")}>
-              סימון כשולם
+            <>
+              <Button variant="success" onClick={() => markPaid("cash")}>
+                שולם במזומן
+              </Button>
+              <Button variant="success" onClick={() => markPaid("transfer")}>
+                שולם בהעברה
+              </Button>
+            </>
+          )}
+          {appt.status === "paid" && (
+            <Button
+              variant="outline"
+              className="col-span-2"
+              onClick={() => markPaid(method === "cash" ? "transfer" : "cash")}
+            >
+              שינוי לתשלום ב{method === "cash" ? "העברה" : "מזומן"}
             </Button>
           )}
           {appt.status === "scheduled" && (
