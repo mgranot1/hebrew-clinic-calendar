@@ -2,7 +2,7 @@ import { format, isToday } from "date-fns";
 import { he } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Appointment, Break, WorkingHours, AppointmentStatus } from "@/lib/clinic";
-import { TREATMENT_LABEL } from "@/lib/clinic";
+
 import { daySchedule } from "@/lib/day-schedule";
 import { formatDuration, fromMinutes, toMinutes } from "@/lib/scheduling";
 
@@ -118,9 +118,7 @@ export function TimeGrid({ days, hours, breaks, appts, onSelect }: Props) {
                       </span>
                       <span className="block truncate">{a.client_name}</span>
                       {a.duration_minutes >= 15 && (
-                        <span className="block truncate opacity-70">
-                          {TREATMENT_LABEL[a.treatment_type as keyof typeof TREATMENT_LABEL]}
-                        </span>
+                        <span className="block truncate opacity-70">{a.treatment_type}</span>
                       )}
                     </button>
                   );

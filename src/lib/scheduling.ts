@@ -7,10 +7,12 @@
 
 export const SLOT_STEP = 15;
 export const BUFFER_MINUTES = 5;
-export const WAXING_DURATION = 15;
-export const ELECTROLYSIS_DURATIONS = Array.from({ length: 12 }, (_, i) => (i + 1) * 5);
+export const DURATION_STEP = 5;
 
-export type TreatmentType = "waxing" | "electrolysis";
+/** Treatment durations must be positive multiples of DURATION_STEP (5, 10, 15...). */
+export function isValidDuration(mins: number): boolean {
+  return Number.isInteger(mins) && mins > 0 && mins % DURATION_STEP === 0;
+}
 
 export interface Interval {
   start: number; // minutes from midnight
@@ -36,10 +38,6 @@ export function formatDuration(mins: number): string {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return m ? `${h} ש׳ ${m} דק׳` : `${h} ש׳`;
-}
-
-export function allowedDurations(type: TreatmentType): number[] {
-  return type === "waxing" ? [WAXING_DURATION] : ELECTROLYSIS_DURATIONS;
 }
 
 const overlaps = (a: Interval, b: Interval) => a.start < b.end && b.start < a.end;

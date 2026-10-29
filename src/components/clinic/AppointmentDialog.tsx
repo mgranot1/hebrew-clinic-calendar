@@ -1,17 +1,35 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
-  appointmentsQuery, breaksQuery, clientsQuery, hoursQuery, pricingQuery, ils,
-  TREATMENT_LABEL, useCreateAppointment,
+  appointmentsQuery,
+  breaksQuery,
+  clientsQuery,
+  hoursQuery,
+  pricingQuery,
+  treatmentTypesQuery,
+  ils,
+  useCreateAppointment,
 } from "@/lib/clinic";
-import { allowedDurations, availableSlots, fromMinutes, isPastDay, type TreatmentType } from "@/lib/scheduling";
+import { availableSlots, formatDuration, fromMinutes, isPastDay } from "@/lib/scheduling";
 import { daySchedule, iso } from "@/lib/day-schedule";
 
 interface Props {
@@ -28,8 +46,8 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
   const [date, setDate] = useState(() => clampToToday(initialDate));
   const [clientName, setClientName] = useState("");
   const [clientId, setClientId] = useState<string | null>(null);
-  const [type, setType] = useState<TreatmentType>("waxing");
-  const [duration, setDuration] = useState(15);
+  const [type, setType] = useState<string>("");
+  const [duration, setDuration] = useState(0);
   const [slot, setSlot] = useState<number | null>(null);
   const [showList, setShowList] = useState(false);
 
@@ -45,32 +63,57 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
 
   const { data: clients = [] } = useQuery(clientsQuery);
   const { data: pricing = [] } = useQuery(pricingQuery);
+  const { data: types = [] } = useQuery(treatmentTypesQuery);
   const { data: hours = [] } = useQuery(hoursQuery);
   const { data: breaks = [] } = useQuery(breaksQuery);
   const { data: appts = [] } = useQuery({ ...appointmentsQuery(date, date), enabled: open });
   const create = useCreateAppointment();
 
-  const price = pricing.find((p) => p.treatment_type === type && p.duration_minutes === duration)?.price ?? 0;
+  // Durations the manager priced for the selected type, ascending.
+  const durations = useMemo(
+    () =>
+      pricing
+        .filter((p) => p.treatment_type === type)
+        .map((p) => p.duration_minutes)
+        .sort((a, b) => a - b),
+    [pricing, type],
+  );
+
+  // Default the type to the first available, and keep duration valid for the type.
+  useEffect(() => {
+    if (!types.some((t) => t.name === type)) setType(types[0]?.name ?? "");
+  }, [types, type]);
+  useEffect(() => {
+    if (!durations.includes(duration)) {
+      setDuration(durations[0] ?? 0);
+      setSlot(null);
+    }
+  }, [durations, duration]);
+
+  const price =
+    pricing.find((p) => p.treatment_type === type && p.duration_minutes === duration)?.price ?? 0;
   const slots = useMemo(() => {
     if (isPastDay(date, today)) return [];
     const s = daySchedule(new Date(date + "T00:00"), hours, breaks, appts);
     return availableSlots(s.open, s.breaks, s.booked, duration);
   }, [date, hours, breaks, appts, duration, today]);
 
-  const suggestions = showList && !clientId
-    ? clients
-    : clientName && !clientId
-      ? clients.filter((c) => c.full_name.includes(clientName) || c.phone?.includes(clientName)).slice(0, 5)
-      : [];
+  const suggestions =
+    showList && !clientId
+      ? clients
+      : clientName && !clientId
+        ? clients
+            .filter((c) => c.full_name.includes(clientName) || c.phone?.includes(clientName))
+            .slice(0, 5)
+        : [];
 
-  function changeType(t: TreatmentType) {
+  function changeType(t: string) {
     setType(t);
-    setDuration(allowedDurations(t)[t === "waxing" ? 0 : 2] ?? 15);
     setSlot(null);
   }
 
   async function submit() {
-    if (slot == null || !clientName.trim() || isPastDay(date, today)) return;
+    if (slot == null || !clientName.trim() || !type || !duration || isPastDay(date, today)) return;
     await create.mutateAsync({
       appt_date: date,
       start_time: fromMinutes(slot),
@@ -98,14 +141,20 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
                 className="flex-1"
                 placeholder="בחרו לקוחה או הקלידו שם"
                 value={clientName}
-                onChange={(e) => { setClientName(e.target.value); setClientId(null); }}
+                onChange={(e) => {
+                  setClientName(e.target.value);
+                  setClientId(null);
+                }}
               />
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
                 aria-label="רשימת לקוחות"
-                onClick={() => { setShowList((s) => !s); setClientId(null); }}
+                onClick={() => {
+                  setShowList((s) => !s);
+                  setClientId(null);
+                }}
               >
                 <ChevronDown className={cn("transition-transform", showList && "rotate-180")} />
               </Button>
@@ -117,10 +166,16 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
                   <button
                     key={c.id}
                     className="flex w-full justify-between px-3 py-2 text-sm hover:bg-accent"
-                    onClick={() => { setClientName(c.full_name); setClientId(c.id); setShowList(false); }}
+                    onClick={() => {
+                      setClientName(c.full_name);
+                      setClientId(c.id);
+                      setShowList(false);
+                    }}
                   >
                     <span>{c.full_name}</span>
-                    <span dir="ltr" className="text-muted-foreground">{c.phone}</span>
+                    <span dir="ltr" className="text-muted-foreground">
+                      {c.phone}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -128,24 +183,50 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
           </div>
           <div className="space-y-1.5">
             <Label>תאריך</Label>
-            <Input type="date" min={today} value={date} onChange={(e) => { setDate(e.target.value); setSlot(null); }} />
+            <Input
+              type="date"
+              min={today}
+              value={date}
+              onChange={(e) => {
+                setDate(e.target.value);
+                setSlot(null);
+              }}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>סוג טיפול</Label>
-            <Select value={type} onValueChange={(v) => changeType(v as TreatmentType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Select value={type} onValueChange={changeType} disabled={types.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder="בחרו סוג טיפול" />
+              </SelectTrigger>
               <SelectContent>
-                <SelectItem value="waxing">{TREATMENT_LABEL.waxing}</SelectItem>
-                <SelectItem value="electrolysis">{TREATMENT_LABEL.electrolysis}</SelectItem>
+                {types.map((t) => (
+                  <SelectItem key={t.id} value={t.name}>
+                    {t.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
             <Label>משך</Label>
-            <Select value={String(duration)} onValueChange={(v) => { setDuration(Number(v)); setSlot(null); }} disabled={type === "waxing"}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Select
+              value={duration ? String(duration) : ""}
+              onValueChange={(v) => {
+                setDuration(Number(v));
+                setSlot(null);
+              }}
+              disabled={durations.length <= 1}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="בחרו משך" />
+              </SelectTrigger>
               <SelectContent>
-                {allowedDurations(type).map((d) => <SelectItem key={d} value={String(d)}>{d} דקות</SelectItem>)}
+                {durations.map((d) => (
+                  <SelectItem key={d} value={String(d)}>
+                    {formatDuration(d)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -154,9 +235,13 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
         <div>
           <Label>שעות פנויות</Label>
           {isPastDay(date, today) ? (
-            <p className="mt-2 rounded-lg bg-muted p-4 text-center text-sm text-muted-foreground">אי אפשר לקבוע תור לתאריך שכבר עבר. בחרו היום או מחר.</p>
+            <p className="mt-2 rounded-lg bg-muted p-4 text-center text-sm text-muted-foreground">
+              אי אפשר לקבוע תור לתאריך שכבר עבר. בחרו היום או מחר.
+            </p>
           ) : slots.length === 0 ? (
-            <p className="mt-2 rounded-lg bg-muted p-4 text-center text-sm text-muted-foreground">אין שעות פנויות ביום זה</p>
+            <p className="mt-2 rounded-lg bg-muted p-4 text-center text-sm text-muted-foreground">
+              אין שעות פנויות ביום זה
+            </p>
           ) : (
             <div className="mt-2 grid max-h-48 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-6">
               {slots.map((s) => (
@@ -176,8 +261,21 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
         </div>
 
         <DialogFooter className="items-center gap-3 sm:justify-between">
-          <div className="text-lg">מחיר: <span className="font-semibold text-primary">{ils(Number(price))}</span></div>
-          <Button variant="hero" onClick={submit} disabled={slot == null || !clientName.trim() || create.isPending || isPastDay(date, today)}>
+          <div className="text-lg">
+            מחיר: <span className="font-semibold text-primary">{ils(Number(price))}</span>
+          </div>
+          <Button
+            variant="hero"
+            onClick={submit}
+            disabled={
+              slot == null ||
+              !clientName.trim() ||
+              !type ||
+              !duration ||
+              create.isPending ||
+              isPastDay(date, today)
+            }
+          >
             קביעת תור
           </Button>
         </DialogFooter>
