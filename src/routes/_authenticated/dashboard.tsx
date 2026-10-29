@@ -2,16 +2,33 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format,
-  isSameMonth, isToday, startOfMonth, startOfWeek,
+  addDays,
+  addMonths,
+  addWeeks,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameMonth,
+  isToday,
+  startOfMonth,
+  startOfWeek,
 } from "date-fns";
 import { he } from "date-fns/locale";
 import { ChevronRight, ChevronLeft, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import { appointmentsQuery, breaksQuery, hoursQuery, ils, type Appointment } from "@/lib/clinic";
+import {
+  appointmentsQuery,
+  breaksQuery,
+  hoursQuery,
+  ils,
+  treatmentTypesQuery,
+  type Appointment,
+} from "@/lib/clinic";
 import { dayLoad, iso, type DayLoad } from "@/lib/day-schedule";
+import { formatDuration } from "@/lib/scheduling";
 import { TimeGrid } from "@/components/clinic/TimeGrid";
 import { AppointmentDialog } from "@/components/clinic/AppointmentDialog";
 import { AppointmentDetails } from "@/components/clinic/AppointmentDetails";
@@ -46,15 +63,20 @@ function Dashboard() {
   const { data: appts = [] } = useQuery(appointmentsQuery(iso(from), iso(to)));
   const { data: hours = [] } = useQuery(hoursQuery);
   const { data: breaks = [] } = useQuery(breaksQuery);
+  const { data: types = [] } = useQuery(treatmentTypesQuery);
   const days = eachDayOfInterval({ start: from, end: to });
 
   const step = (dir: 1 | -1) =>
-    setCursor((c) => (view === "day" ? addDays(c, dir) : view === "week" ? addWeeks(c, dir) : addMonths(c, dir)));
+    setCursor((c) =>
+      view === "day" ? addDays(c, dir) : view === "week" ? addWeeks(c, dir) : addMonths(c, dir),
+    );
 
   const title =
-    view === "month" ? format(cursor, "LLLL yyyy", { locale: he })
-    : view === "week" ? `${format(from, "d/M")} – ${format(to, "d/M/yyyy")}`
-    : format(cursor, "EEEE, d בLLLL yyyy", { locale: he });
+    view === "month"
+      ? format(cursor, "LLLL yyyy", { locale: he })
+      : view === "week"
+        ? `${format(from, "d/M")} – ${format(to, "d/M/yyyy")}`
+        : format(cursor, "EEEE, d בLLLL yyyy", { locale: he });
 
   const active = appts.filter((a) => a.status !== "cancelled");
   const expected = active.reduce((s, a) => s + Number(a.price), 0);
@@ -68,17 +90,30 @@ function Dashboard() {
           <p className="text-muted-foreground">{title}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v as View)} className="rounded-lg border bg-card p-1">
+          <ToggleGroup
+            type="single"
+            value={view}
+            onValueChange={(v) => v && setView(v as View)}
+            className="rounded-lg border bg-card p-1"
+          >
             <ToggleGroupItem value="day">יום</ToggleGroupItem>
             <ToggleGroupItem value="week">שבוע</ToggleGroupItem>
             <ToggleGroupItem value="month">חודש</ToggleGroupItem>
           </ToggleGroup>
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="icon" onClick={() => step(-1)} aria-label="הקודם"><ChevronRight /></Button>
-            <Button variant="outline" onClick={() => setCursor(new Date())}>היום</Button>
-            <Button variant="outline" size="icon" onClick={() => step(1)} aria-label="הבא"><ChevronLeft /></Button>
+            <Button variant="outline" size="icon" onClick={() => step(-1)} aria-label="הקודם">
+              <ChevronRight />
+            </Button>
+            <Button variant="outline" onClick={() => setCursor(new Date())}>
+              היום
+            </Button>
+            <Button variant="outline" size="icon" onClick={() => step(1)} aria-label="הבא">
+              <ChevronLeft />
+            </Button>
           </div>
-          <Button variant="hero" onClick={() => setCreating(true)}><Plus /> תור חדש</Button>
+          <Button variant="hero" onClick={() => setCreating(true)}>
+            <Plus /> תור חדש
+          </Button>
         </div>
       </header>
 
@@ -91,26 +126,46 @@ function Dashboard() {
       {view === "month" ? (
         <div className="overflow-hidden rounded-2xl border bg-card shadow-soft">
           <div className="grid grid-cols-7 border-b bg-secondary text-center text-xs font-medium text-secondary-foreground">
-            {["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"].map((d) => <div key={d} className="py-2">{d}</div>)}
+            {["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"].map((d) => (
+              <div key={d} className="py-2">
+                {d}
+              </div>
+            ))}
           </div>
           <div className="grid grid-cols-7">
             {days.map((d) => {
               const load = dayLoad(d, hours, breaks, appts);
-              const count = appts.filter((a) => a.appt_date === iso(d) && a.status !== "cancelled").length;
+              const dayAppts = appts.filter(
+                (a) => a.appt_date === iso(d) && a.status !== "cancelled",
+              );
+              const count = dayAppts.length;
+              const totalMinutes = dayAppts.reduce((s, a) => s + a.duration_minutes, 0);
               return (
                 <button
                   key={d.toISOString()}
-                  onClick={() => { setCursor(d); setView("day"); }}
+                  onClick={() => {
+                    setCursor(d);
+                    setView("day");
+                  }}
                   className={cn(
                     "flex min-h-24 flex-col items-start gap-1 border-b border-l p-2 text-right transition-colors hover:bg-accent",
                     !isSameMonth(d, cursor) && "opacity-40",
                     load === "closed" && "bg-muted",
                   )}
                 >
-                  <span className={cn("flex h-7 w-7 items-center justify-center rounded-full text-sm", isToday(d) && "bg-primary text-primary-foreground")}>
+                  <span
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-full text-sm",
+                      isToday(d) && "bg-primary text-primary-foreground",
+                    )}
+                  >
                     {format(d, "d")}
                   </span>
-                  {count > 0 && <span className="text-xs text-muted-foreground">{count} תורים</span>}
+                  {count > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {count} תורים · {formatDuration(totalMinutes)}
+                    </span>
+                  )}
                   <span className="mt-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
                     <span className={cn("h-2 w-2 rounded-full", LOAD_STYLE[load].dot)} />
                     {LOAD_STYLE[load].label}
@@ -121,10 +176,14 @@ function Dashboard() {
           </div>
         </div>
       ) : (
-        <TimeGrid days={days} hours={hours} breaks={breaks} appts={appts} onSelect={setSelected} />
+        <TimeGrid days={days} hours={hours} breaks={breaks} appts={appts} types={types} onSelect={setSelected} />
       )}
 
-      <AppointmentDialog open={creating} onOpenChange={setCreating} initialDate={view === "day" ? cursor : new Date()} />
+      <AppointmentDialog
+        open={creating}
+        onOpenChange={setCreating}
+        initialDate={view === "day" ? cursor : new Date()}
+      />
       <AppointmentDetails appt={selected} onClose={() => setSelected(null)} />
     </div>
   );

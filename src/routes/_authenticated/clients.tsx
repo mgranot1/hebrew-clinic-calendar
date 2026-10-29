@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { clientsQuery, ils, useDeleteClient, useSaveClient, type Client } from "@/lib/clinic";
+import { clientsQuery, findClientByPhone, ils, isValidPhone, useDeleteClient, useSaveClient, type Client } from "@/lib/clinic";
 
 export const Route = createFileRoute("/_authenticated/clients")({
   head: () => ({ meta: [{ title: "לקוחות – Etti" }] }),
@@ -19,7 +19,12 @@ export const Route = createFileRoute("/_authenticated/clients")({
 
 const clientSchema = z.object({
   full_name: z.string().trim().min(1, "יש להזין שם").max(100),
-  phone: z.string().trim().max(20).optional(),
+  phone: z
+    .string()
+    .trim()
+    .min(1, "יש להזין מספר טלפון")
+    .max(20)
+    .refine(isValidPhone, "מספר טלפון לא תקין"),
   email: z.string().trim().email("אימייל לא תקין").max(255).or(z.literal("")).optional(),
   notes: z.string().max(1000).optional(),
   debt: z.coerce.number().min(0, "חוב לא יכול להיות שלילי"),
@@ -92,20 +97,30 @@ function ClientsPage() {
 
 function ClientForm({ draft, onClose }: { draft: Draft; onClose: () => void }) {
   const [form, setForm] = useState<Draft>(draft);
+  const { data: clients = [] } = useQuery(clientsQuery);
   const save = useSaveClient();
   const set = (k: keyof Client) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
 
   async function submit() {
-    const parsed = clientSchema.safeParse(form);
+    const parsed = clientSchema.safeParse({
+      ...form,
+      full_name: form.full_name ?? "",
+      phone: form.phone ?? "",
+    });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message ?? "שגיאה");
       return;
     }
     const d = parsed.data;
+    const owner = findClientByPhone(clients, d.phone, draft.id);
+    if (owner) {
+      toast.error(`מספר הטלפון כבר שייך ל${owner.full_name}`);
+      return;
+    }
     await save.mutateAsync({
       ...(draft.id ? { id: draft.id } : {}),
       full_name: d.full_name,
-      phone: d.phone || null,
+      phone: d.phone,
       email: d.email || null,
       notes: d.notes || null,
       debt: d.debt,
@@ -118,8 +133,8 @@ function ClientForm({ draft, onClose }: { draft: Draft; onClose: () => void }) {
       <DialogContent dir="rtl">
         <DialogHeader><DialogTitle className="font-display text-2xl">{draft.id ? "עריכת לקוחה" : "לקוחה חדשה"}</DialogTitle></DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2"><Label>שם מלא</Label><Input value={form.full_name ?? ""} onChange={set("full_name")} /></div>
-          <div className="space-y-1.5"><Label>טלפון</Label><Input dir="ltr" value={form.phone ?? ""} onChange={set("phone")} /></div>
+          <div className="space-y-1.5 sm:col-span-2"><Label>שם מלא *</Label><Input value={form.full_name ?? ""} onChange={set("full_name")} /></div>
+          <div className="space-y-1.5"><Label>טלפון *</Label><Input type="tel" dir="ltr" placeholder="050-0000000" value={form.phone ?? ""} onChange={set("phone")} /></div>
           <div className="space-y-1.5"><Label>אימייל</Label><Input dir="ltr" value={form.email ?? ""} onChange={set("email")} /></div>
           <div className="space-y-1.5"><Label>חוב פתוח (₪)</Label><Input type="number" min={0} value={form.debt ?? 0} onChange={set("debt")} /></div>
           <div className="space-y-1.5 sm:col-span-2"><Label>הערות</Label><Textarea value={form.notes ?? ""} onChange={set("notes")} /></div>
