@@ -135,18 +135,21 @@ export type Database = {
       };
       treatment_types: {
         Row: {
+          color: string;
           created_at: string;
           id: string;
           name: string;
           sort_order: number;
         };
         Insert: {
+          color?: string;
           created_at?: string;
           id?: string;
           name: string;
           sort_order?: number;
         };
         Update: {
+          color?: string;
           created_at?: string;
           id?: string;
           name?: string;

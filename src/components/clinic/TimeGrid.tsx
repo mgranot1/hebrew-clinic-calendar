@@ -1,7 +1,7 @@
 import { format, isToday } from "date-fns";
 import { he } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import type { Appointment, Break, WorkingHours, AppointmentStatus } from "@/lib/clinic";
+import { typeTint, type Appointment, type Break, type WorkingHours, type AppointmentStatus, type TreatmentType } from "@/lib/clinic";
 
 import { daySchedule } from "@/lib/day-schedule";
 import { formatDuration, fromMinutes, toMinutes } from "@/lib/scheduling";
@@ -20,11 +20,14 @@ interface Props {
   hours: WorkingHours[];
   breaks: Break[];
   appts: Appointment[];
+  types: TreatmentType[];
   onSelect: (a: Appointment) => void;
 }
 
 /** Week/day time grid with appointments positioned by minute. */
-export function TimeGrid({ days, hours, breaks, appts, onSelect }: Props) {
+export function TimeGrid({ days, hours, breaks, appts, types, onSelect }: Props) {
+  // Appointments store the type name, so color is looked up by name (same color for every duration).
+  const colorByType = new Map(types.map((t) => [t.name, t.color]));
   const open = hours.filter((h) => h.is_open);
   const startMin =
     Math.floor(Math.min(...open.map((h) => toMinutes(h.start_time)), 8 * 60) / 60) * 60;
@@ -99,6 +102,7 @@ export function TimeGrid({ days, hours, breaks, appts, onSelect }: Props) {
                 ))}
                 {all.map((a) => {
                   const st = toMinutes(a.start_time);
+                  const color = colorByType.get(a.treatment_type);
                   return (
                     <button
                       key={a.id}
@@ -110,6 +114,7 @@ export function TimeGrid({ days, hours, breaks, appts, onSelect }: Props) {
                       style={{
                         top: (st - startMin) * PX_PER_MIN,
                         height: Math.max(a.duration_minutes * PX_PER_MIN, 18),
+                        ...(color && { backgroundColor: typeTint(color) }),
                       }}
                       title={`${a.client_name} ${fromMinutes(st)} · ${formatDuration(a.duration_minutes)}`}
                     >

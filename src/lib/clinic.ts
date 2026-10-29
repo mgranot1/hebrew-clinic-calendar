@@ -22,6 +22,18 @@ export const STATUS_LABEL: Record<AppointmentStatus, string> = {
   cancelled: "בוטל",
 };
 export const DAY_LABEL = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+
+/** Calendar colors a treatment type may use: theme variables from styles.css (keep in sync with the DB CHECK). */
+export const TYPE_COLORS = [
+  { key: "chart-1", label: "ברונזה" },
+  { key: "chart-3", label: "טרקוטה" },
+  { key: "chart-4", label: "זהב" },
+  { key: "chart-5", label: "חום" },
+] as const;
+export const typeColor = (key: string) => `var(--${key})`;
+/** Soft tint of a type color, readable behind dark text. */
+export const typeTint = (key: string) =>
+  `color-mix(in oklab, ${typeColor(key)} 30%, var(--card))`;
 export const ils = (n: number) =>
   `₪${Number(n).toLocaleString("he-IL", { maximumFractionDigits: 2 })}`;
 
@@ -181,19 +193,19 @@ export const useAddTreatmentType = () =>
     ["treatment_types"],
     "סוג הטיפול נוסף",
   );
-export const useRenameTreatmentType = () =>
+export const useUpdateTreatmentType = () =>
   useClinicMutation(
-    // Rename the type and carry the new name onto its pricing rows (joined by name).
-    async ({ id, oldName, name }: { id: string; oldName: string; name: string }) => {
-      const t = await supabase.from("treatment_types").update({ name }).eq("id", id);
-      if (t.error) return t;
+    // Price rows are joined by name, so a rename carries the new name onto them.
+    async ({ id, oldName, name, color }: { id: string; oldName: string; name: string; color: string }) => {
+      const t = await supabase.from("treatment_types").update({ name, color }).eq("id", id);
+      if (t.error || name === oldName) return t;
       return supabase
         .from("pricing_rules")
         .update({ treatment_type: name })
         .eq("treatment_type", oldName);
     },
     ["treatment_types", "pricing"],
-    "השם עודכן",
+    "סוג הטיפול עודכן",
   );
 export const useDeleteTreatmentType = () =>
   useClinicMutation(

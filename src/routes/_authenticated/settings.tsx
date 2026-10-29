@@ -28,13 +28,16 @@ import {
   useAddTreatmentType,
   useDeleteBreak,
   useDeleteTreatmentType,
-  useRenameTreatmentType,
+  useUpdateTreatmentType,
   useSaveHours,
   useSaveTypePricing,
   type PricingRule,
   type TreatmentType,
   type WorkingHours,
+  TYPE_COLORS,
+  typeColor,
 } from "@/lib/clinic";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "הגדרות – Etti" }] }),
@@ -181,7 +184,13 @@ function PricingEditor() {
         </p>
       )}
       <AddTypeForm
-        onAdd={(name) => addType.mutate({ name, sort_order: types.length })}
+        onAdd={(name) =>
+          addType.mutate({
+            name,
+            sort_order: types.length,
+            color: TYPE_COLORS[types.length % TYPE_COLORS.length].key,
+          })
+        }
         pending={addType.isPending}
       />
     </div>
@@ -198,13 +207,14 @@ const toRows = (rules: PricingRule[]): PriceRow[] =>
 /** One treatment type: read-only until "edit" is pressed; save and delete ask for confirmation. */
 function TypeCard({ type, rules }: { type: TreatmentType; rules: PricingRule[] }) {
   const savePricing = useSaveTypePricing();
-  const rename = useRenameTreatmentType();
+  const rename = useUpdateTreatmentType();
   const del = useDeleteTreatmentType();
 
   const [editing, setEditing] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [name, setName] = useState(type.name);
+  const [color, setColor] = useState(type.color);
   const [rows, setRows] = useState<PriceRow[]>([]);
   const [newDuration, setNewDuration] = useState("");
 
@@ -212,11 +222,13 @@ function TypeCard({ type, rules }: { type: TreatmentType; rules: PricingRule[] }
   useEffect(() => {
     if (editing) return;
     setName(type.name);
+    setColor(type.color);
     setRows(toRows(rules));
     setNewDuration("");
-  }, [editing, type.name, rules]);
+  }, [editing, type.name, type.color, rules]);
 
   const nameChanged = name.trim() !== type.name;
+  const typeChanged = nameChanged || color !== type.color;
   const pricesChanged = JSON.stringify(rows) !== JSON.stringify(toRows(rules));
   const busy = savePricing.isPending || rename.isPending || del.isPending;
 
@@ -240,7 +252,7 @@ function TypeCard({ type, rules }: { type: TreatmentType; rules: PricingRule[] }
       toast.error("יש להזין שם לסוג הטיפול");
       return;
     }
-    if (!nameChanged && !pricesChanged) {
+    if (!typeChanged && !pricesChanged) {
       setEditing(false);
       return;
     }
@@ -251,7 +263,8 @@ function TypeCard({ type, rules }: { type: TreatmentType; rules: PricingRule[] }
     const newName = name.trim();
     try {
       // Rename first: it moves the existing price rows onto the new name.
-      if (nameChanged) await rename.mutateAsync({ id: type.id, oldName: type.name, name: newName });
+      if (typeChanged)
+        await rename.mutateAsync({ id: type.id, oldName: type.name, name: newName, color });
       if (pricesChanged) {
         const payload = rows
           .filter((r) => isValidDuration(Number(r.duration)))
@@ -272,6 +285,11 @@ function TypeCard({ type, rules }: { type: TreatmentType; rules: PricingRule[] }
     return (
       <div className="space-y-4 rounded-2xl border bg-card p-6 shadow-soft">
         <div className="flex flex-wrap items-center gap-2">
+          <span
+            className="h-4 w-4 rounded-full"
+            style={{ backgroundColor: typeColor(type.color) }}
+            aria-hidden
+          />
           <h2 className="font-display text-lg">{type.name}</h2>
           <Button variant="outline" size="sm" className="mr-auto" onClick={() => setEditing(true)}>
             <Pencil className="h-4 w-4" /> עריכה
@@ -312,6 +330,26 @@ function TypeCard({ type, rules }: { type: TreatmentType; rules: PricingRule[] }
         >
           <Trash2 className="h-4 w-4" /> מחיקת סוג
         </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="צבע ביומן">
+        <span className="text-sm text-muted-foreground">צבע ביומן:</span>
+        {TYPE_COLORS.map((c) => (
+          <button
+            key={c.key}
+            type="button"
+            role="radio"
+            aria-checked={color === c.key}
+            aria-label={c.label}
+            title={c.label}
+            onClick={() => setColor(c.key)}
+            className={cn(
+              "h-7 w-7 rounded-full border-2 border-transparent transition-transform hover:scale-110",
+              color === c.key && "border-foreground ring-2 ring-background ring-inset",
+            )}
+            style={{ backgroundColor: typeColor(c.key) }}
+          />
+        ))}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">

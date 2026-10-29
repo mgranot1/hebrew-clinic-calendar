@@ -19,7 +19,14 @@ import { ChevronRight, ChevronLeft, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import { appointmentsQuery, breaksQuery, hoursQuery, ils, type Appointment } from "@/lib/clinic";
+import {
+  appointmentsQuery,
+  breaksQuery,
+  hoursQuery,
+  ils,
+  treatmentTypesQuery,
+  type Appointment,
+} from "@/lib/clinic";
 import { dayLoad, iso, type DayLoad } from "@/lib/day-schedule";
 import { formatDuration } from "@/lib/scheduling";
 import { TimeGrid } from "@/components/clinic/TimeGrid";
@@ -56,6 +63,7 @@ function Dashboard() {
   const { data: appts = [] } = useQuery(appointmentsQuery(iso(from), iso(to)));
   const { data: hours = [] } = useQuery(hoursQuery);
   const { data: breaks = [] } = useQuery(breaksQuery);
+  const { data: types = [] } = useQuery(treatmentTypesQuery);
   const days = eachDayOfInterval({ start: from, end: to });
 
   const step = (dir: 1 | -1) =>
@@ -168,7 +176,7 @@ function Dashboard() {
           </div>
         </div>
       ) : (
-        <TimeGrid days={days} hours={hours} breaks={breaks} appts={appts} onSelect={setSelected} />
+        <TimeGrid days={days} hours={hours} breaks={breaks} appts={appts} types={types} onSelect={setSelected} />
       )}
 
       <AppointmentDialog
