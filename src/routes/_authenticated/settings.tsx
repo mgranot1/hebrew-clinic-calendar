@@ -70,15 +70,61 @@ function HoursEditor() {
   const { data = [] } = useQuery(hoursQuery);
   const { data: breaks = [] } = useQuery(breaksQuery);
   const [rows, setRows] = useState<WorkingHours[]>([]);
+  const [editing, setEditing] = useState(false);
   const save = useSaveHours();
   const addBreak = useAddBreak();
   const delBreak = useDeleteBreak();
-  useEffect(() => setRows(data), [data]);
+  // Sync from the DB only outside edit mode, so a refetch can't wipe unsaved edits.
+  useEffect(() => {
+    if (!editing) setRows(data);
+  }, [data, editing]);
   const patch = (dow: number, p: Partial<WorkingHours>) =>
     setRows((r) => r.map((x) => (x.day_of_week === dow ? { ...x, ...p } : x)));
 
+  async function saveHours() {
+    try {
+      await save.mutateAsync(rows);
+      setEditing(false);
+    } catch {
+      // The mutation already shows the error; stay in edit mode so nothing is lost.
+    }
+  }
+
+  if (!editing)
+    return (
+      <div className="space-y-3 rounded-2xl border bg-card p-6 shadow-soft">
+        {rows.map((r) => (
+          <div
+            key={r.day_of_week}
+            className="flex flex-wrap items-center gap-4 border-b pb-3 last:border-0"
+          >
+            <span className="w-16 font-medium">{DAY_LABEL[r.day_of_week]}</span>
+            {r.is_open ? (
+              <>
+                <span dir="ltr">
+                  {hhmm(r.start_time)}–{hhmm(r.end_time)}
+                </span>
+                {breaks
+                  .filter((b) => b.day_of_week === r.day_of_week)
+                  .map((b) => (
+                    <span key={b.id} className="rounded-full bg-secondary px-3 py-1 text-xs">
+                      הפסקה {hhmm(b.start_time)}–{hhmm(b.end_time)}
+                    </span>
+                  ))}
+              </>
+            ) : (
+              <span className="text-sm text-muted-foreground">סגור</span>
+            )}
+          </div>
+        ))}
+        <Button variant="outline" onClick={() => setEditing(true)}>
+          <Pencil className="h-4 w-4" /> עריכה
+        </Button>
+      </div>
+    );
+
   return (
-    <div className="space-y-3 rounded-2xl border bg-card p-6 shadow-soft">
+    <div className="space-y-3 rounded-2xl border border-primary bg-card p-6 shadow-soft">
       {rows.map((r) => (
         <div
           key={r.day_of_week}
@@ -132,9 +178,14 @@ function HoursEditor() {
           )}
         </div>
       ))}
-      <Button variant="hero" onClick={() => save.mutate(rows)} disabled={save.isPending}>
-        שמירת שעות
-      </Button>
+      <div className="flex gap-2">
+        <Button variant="hero" onClick={saveHours} disabled={save.isPending}>
+          שמירת שעות
+        </Button>
+        <Button variant="ghost" onClick={() => setEditing(false)} disabled={save.isPending}>
+          ביטול
+        </Button>
+      </div>
     </div>
   );
 }
