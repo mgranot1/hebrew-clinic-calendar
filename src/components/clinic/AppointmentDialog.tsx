@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { UserPlus, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -27,7 +27,11 @@ import {
   pricingQuery,
   treatmentTypesQuery,
   ils,
+  isValidPhone,
+  findClientByPhone,
+  normalizePhone,
   useCreateAppointment,
+  type Client,
 } from "@/lib/clinic";
 import { availableSlots, formatDuration, fromMinutes, isPastDay } from "@/lib/scheduling";
 import { daySchedule, iso } from "@/lib/day-schedule";
@@ -44,20 +48,27 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
   /** Dates that already passed can't be booked, so the form never starts on one. */
   const clampToToday = (d: Date) => (isPastDay(iso(d), today) ? today : iso(d));
   const [date, setDate] = useState(() => clampToToday(initialDate));
-  const [clientName, setClientName] = useState("");
+  const [search, setSearch] = useState("");
+  const [listOpen, setListOpen] = useState(false);
   const [clientId, setClientId] = useState<string | null>(null);
+  // Name of the picked client, or of the new client being added.
+  const [clientName, setClientName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [phone, setPhone] = useState("");
   const [type, setType] = useState<string>("");
   const [duration, setDuration] = useState(0);
   const [slot, setSlot] = useState<number | null>(null);
-  const [showList, setShowList] = useState(false);
 
   useEffect(() => {
     if (open) {
       setDate(clampToToday(initialDate));
-      setClientName("");
+      setSearch("");
+      setListOpen(false);
       setClientId(null);
+      setClientName("");
+      setAdding(false);
+      setPhone("");
       setSlot(null);
-      setShowList(false);
     }
   }, [open, initialDate]);
 
@@ -98,22 +109,53 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
     return availableSlots(s.open, s.breaks, s.booked, duration);
   }, [date, hours, breaks, appts, duration, today]);
 
-  const suggestions =
-    showList && !clientId
-      ? clients
-      : clientName && !clientId
-        ? clients
-            .filter((c) => c.full_name.includes(clientName) || c.phone?.includes(clientName))
-            .slice(0, 5)
-        : [];
+  const term = search.trim();
+  const termDigits = normalizePhone(term);
+  const matches = term
+    ? clients.filter(
+        (c) =>
+          c.full_name.includes(term) ||
+          (termDigits.length >= 3 && !!c.phone && normalizePhone(c.phone).includes(termDigits)),
+      )
+    : clients;
+
+  function pickClient(c: Client) {
+    setClientId(c.id);
+    setClientName(c.full_name);
+    setSearch(c.full_name);
+    setListOpen(false);
+    setAdding(false);
+    setPhone("");
+  }
+
+  function startAdding() {
+    // Prefill whichever field the manager was typing into the search box.
+    const looksLikePhone = /^[\d\s\-+]+$/.test(term);
+    setClientName(looksLikePhone ? "" : term);
+    setPhone(looksLikePhone ? term : "");
+    setAdding(true);
+    setListOpen(false);
+  }
+
+  function cancelAdding() {
+    setAdding(false);
+    setClientName("");
+    setPhone("");
+  }
 
   function changeType(t: string) {
     setType(t);
     setSlot(null);
   }
 
+  const phoneOwner =
+    adding && isValidPhone(phone) ? findClientByPhone(clients, phone) : undefined;
+  const clientOk = clientId
+    ? true
+    : adding && !!clientName.trim() && isValidPhone(phone) && !phoneOwner;
+
   async function submit() {
-    if (slot == null || !clientName.trim() || !type || !duration || isPastDay(date, today)) return;
+    if (slot == null || !clientOk || !type || !duration || isPastDay(date, today)) return;
     await create.mutateAsync({
       appt_date: date,
       start_time: fromMinutes(slot),
@@ -122,6 +164,7 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
       client_name: clientName.trim(),
       treatment_type: type,
       price: Number(price),
+      ...(adding && { newClient: { full_name: clientName.trim(), phone: phone.trim() } }),
     });
     onOpenChange(false);
   }
@@ -134,53 +177,108 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
         </DialogHeader>
 
         <div className="grid gap-5 md:grid-cols-2">
-          <div className="relative space-y-1.5">
-            <Label>לקוחה</Label>
-            <div className="flex gap-2">
-              <Input
-                className="flex-1"
-                placeholder="בחרו לקוחה או הקלידו שם"
-                value={clientName}
-                onChange={(e) => {
-                  setClientName(e.target.value);
-                  setClientId(null);
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                aria-label="רשימת לקוחות"
-                onClick={() => {
-                  setShowList((s) => !s);
-                  setClientId(null);
-                }}
-              >
-                <ChevronDown className={cn("transition-transform", showList && "rotate-180")} />
-              </Button>
-            </div>
-            {clientId && <p className="text-xs text-success">לקוחה קיימת ✓</p>}
-            {suggestions.length > 0 && (
-              <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border bg-popover shadow-soft">
-                {suggestions.map((c) => (
-                  <button
-                    key={c.id}
-                    className="flex w-full justify-between px-3 py-2 text-sm hover:bg-accent"
-                    onClick={() => {
-                      setClientName(c.full_name);
-                      setClientId(c.id);
-                      setShowList(false);
-                    }}
-                  >
-                    <span>{c.full_name}</span>
-                    <span dir="ltr" className="text-muted-foreground">
-                      {c.phone}
-                    </span>
-                  </button>
-                ))}
+          {adding ? (
+            <div className="space-y-1.5 md:col-span-2">
+              <div className="flex items-center justify-between">
+                <Label>לקוחה חדשה – תישמר ברשימת הלקוחות</Label>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={cancelAdding}
+                >
+                  <X className="h-3 w-3" /> חזרה לחיפוש
+                </button>
               </div>
-            )}
-          </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Input
+                  aria-label="שם מלא"
+                  placeholder="שם מלא *"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  autoFocus={!clientName}
+                />
+                <Input
+                  aria-label="טלפון"
+                  type="tel"
+                  dir="ltr"
+                  className="text-right"
+                  placeholder="טלפון *"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  aria-invalid={!!phone && (!isValidPhone(phone) || !!phoneOwner)}
+                  autoFocus={!!clientName}
+                />
+              </div>
+              {phoneOwner ? (
+                <p className="text-xs text-destructive">
+                  המספר כבר שייך ללקוחה קיימת: {phoneOwner.full_name}.{" "}
+                  <button
+                    type="button"
+                    className="font-semibold underline"
+                    onClick={() => pickClient(phoneOwner)}
+                  >
+                    לבחור בה
+                  </button>
+                </p>
+              ) : (
+                phone &&
+                !isValidPhone(phone) && (
+                  <p className="text-xs text-destructive">מספר טלפון לא תקין</p>
+                )
+              )}
+            </div>
+          ) : (
+            <div className="relative space-y-1.5">
+              <Label htmlFor="client-search">לקוחה *</Label>
+              <Input
+                id="client-search"
+                autoComplete="off"
+                placeholder="חיפוש לפי שם או טלפון"
+                value={search}
+                onFocus={() => !clientId && setListOpen(true)}
+                onBlur={() => setListOpen(false)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setClientId(null);
+                  setClientName("");
+                  setListOpen(true);
+                }}
+                className={cn(clientId && "border-success")}
+              />
+              {listOpen && !clientId && (matches.length > 0 || term) && (
+                <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border bg-popover shadow-soft">
+                  {matches.slice(0, 8).map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className="flex w-full justify-between px-3 py-2 text-sm hover:bg-accent"
+                      // Keep input focus so blur doesn't close the list before the click lands.
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pickClient(c)}
+                    >
+                      <span>{c.full_name}</span>
+                      <span dir="ltr" className="text-muted-foreground">
+                        {c.phone}
+                      </span>
+                    </button>
+                  ))}
+                  {term && matches.length === 0 && (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">לא נמצאה לקוחה מתאימה</p>
+                  )}
+                  {term && (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 border-t px-3 py-2 text-sm font-medium text-primary hover:bg-accent"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={startAdding}
+                    >
+                      <UserPlus className="h-4 w-4" /> הוספת לקוחה חדשה
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label>תאריך</Label>
             <Input
@@ -269,7 +367,7 @@ export function AppointmentDialog({ open, onOpenChange, initialDate }: Props) {
             onClick={submit}
             disabled={
               slot == null ||
-              !clientName.trim() ||
+              !clientOk ||
               !type ||
               !duration ||
               create.isPending ||

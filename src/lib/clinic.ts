@@ -36,6 +36,13 @@ export const typeTint = (key: string) =>
   `color-mix(in oklab, ${typeColor(key)} 30%, var(--card))`;
 export const ils = (n: number) =>
   `₪${Number(n).toLocaleString("he-IL", { maximumFractionDigits: 2 })}`;
+export const normalizePhone = (p: string) => p.replace(/[^\d+]/g, "");
+export const isValidPhone = (p: string) => /^\+?\d{9,12}$/.test(normalizePhone(p));
+/** The client (other than `exceptId`) that already has this phone, if any. */
+export const findClientByPhone = (clients: Client[], phone: string, exceptId?: string) =>
+  clients.find(
+    (c) => c.id !== exceptId && !!c.phone && normalizePhone(c.phone) === normalizePhone(phone),
+  );
 
 async function unwrap<T>(
   p: PromiseLike<{ data: T | null; error: { message: string } | null }>,
@@ -137,8 +144,21 @@ export const useDeleteClient = () =>
 
 export const useCreateAppointment = () =>
   useClinicMutation(
-    (a: TablesInsert<"appointments">) => supabase.from("appointments").insert(a),
-    ["appointments"],
+    // A client not yet in the list is saved first, so the appointment links to her record.
+    async ({
+      newClient,
+      ...a
+    }: TablesInsert<"appointments"> & {
+      newClient?: { full_name: string; phone: string } | undefined;
+    }) => {
+      if (newClient) {
+        const c = await supabase.from("clients").insert(newClient).select("id").single();
+        if (c.error) return c;
+        a.client_id = c.data.id;
+      }
+      return supabase.from("appointments").insert(a);
+    },
+    ["appointments", "clients"],
     "התור נקבע",
   );
 export const useUpdateAppointment = () =>
